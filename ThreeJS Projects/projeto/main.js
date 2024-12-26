@@ -1,238 +1,318 @@
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js' 
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import * as THREE from 'three'; 
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
-let canvas = document.getElementById('myCanvas')
 
-let cena = new THREE.Scene()
-let objetos = [] // inicializa vetor vazio
-let mesa = [] // inicializa vetor vazio
+
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+let cena = new THREE.Scene() 
+
+//METER HORIZONTAL 180 GRAUS
+function resetarControles() {
+  // Resetando os valores dos botões de animação
+  document.getElementById('btn_playSupportJoint').disabled = false;
+  document.getElementById('btn_playLongArm').disabled = false;
+  document.getElementById('btn_playShortArm').disabled = false;
+  document.getElementById('btn_playArmToAbajur').disabled = false;
+  document.getElementById('btn_playAbajur').disabled = false;
+
+  // Resetando o menu suspenso para o valor padrão
+  document.getElementById('btn_changeModel').selectedIndex = 0; // Reseta para o valor padrão (opção 2)
+
+  // Resetando os controles deslizantes (se houver)
+  document.getElementById('intensidadeLuz').value = 0;  // Intensity slider reset to default
+  document.getElementById('corLuz').value = "#ffff00";  // Color picker reset to default
+
+  // Resetando o menu de loop para a opção padrão (Repetir)
+  document.getElementById('menu_loop').selectedIndex = 1;  // Reseta para a opção "Repetir"
+}
+
+// Chame essa função sempre que a página for carregada ou após o refresh
+resetarControles();
+let camara = new THREE.PerspectiveCamera( 70, 800 / 600, 0.1, 500 ) 
+camara.position.set( 8, 0, 7)
+
+camara.lookAt( 0, 0, 0 )
+
+let meuCanvas = document.getElementById( 'meuCanvas')
+let renderer = new THREE.WebGLRenderer( { canvas: meuCanvas } )
+renderer.setSize( 800, 600 )
+renderer.setPixelRatio(window.devicePixelRatio * 2)
+renderer.shadowMap.enabled = true
+
+let controlos = new OrbitControls( camara, renderer.domElement )
+
+
+controlos.minPolarAngle = Math.PI / 2; // Ângulo mínimo (horizontal)
+controlos.maxPolarAngle = Math.PI / 2; // Ângulo máximo (horizontal)
+
+controlos.enableDamping = true; // Efeito suave
+controlos.dampingFactor = 0.1;
+controlos.enablePan = false;
+
+renderer.render( cena, camara )
+
+//let grelha = new THREE.GridHelper() 
+
+//cena.add( grelha )
+
+let delta = 0; // tempo desde a última atualização
+let relogio = new THREE.Clock()
+let latencia_minima = 1 / 60; // tempo mínimo entre cada atualização
+
 let misturador = new THREE.AnimationMixer(cena)
-let misturadorOcupado = false
-let isPlayingChairAnim = false
-let acao = null
-let acaoC1 = null;
-let acaoC2 = null;
 
-let material1 = null;
-let materialPorta1 = null;
-let materialPorta2 = null;
-let material2 = new THREE.Color(0x26261c);
-let material3 = new THREE.Color(0x30c0b6);
 
-let carregador = new GLTFLoader()
-let gltf = null;
-carregador.load(
-    'model/ApliqueArticuladoPecaUnica.gltf', 
-    function ( gltf1 ) {
-        gltf = gltf1
-        cena.add( gltf.scene )
 
-        cena.traverse( function (elemento) {
-            if(elemento.isMesh){
-                if(elemento.name.includes('animated')){
-                    objetos.push(elemento)
-                }
-                objetos.push(elemento)
-                if(elemento.name.includes('mesa')){
-                    mesa.push(elemento)
-                    if(elemento.name.includes('porta')){
-                        if(elemento.name.includes('_1')){
-                            materialPorta1 = elemento.material.clone()
-                        }else if(elemento.name.includes('_2')){
-                            materialPorta2 = elemento.material.clone()
-                        }
-                        elemento.material = elemento.material.clone()
-                    }else{
-                        material1 = elemento.material.clone()
-                    }
-                    elemento.material = elemento.material.clone()
-                }
-            }
-        });
-    }
-)
 
-function playAnimacao(name){
-    misturadorOcupado = true
-    let clipe = THREE.AnimationClip.findByName( gltf.animations, name ) 
-    acao = misturador.clipAction( clipe ) 
-    acao.setLoop(THREE.LoopOnce)
-    acao.clampWhenFinished = true
-    acao.paused = false
-    acao.play()
+
+function animar() 
+{ 
+  requestAnimationFrame( animar ) 
+
+  delta += relogio.getDelta() 
+  
+  if (delta < latencia_minima) 
+    return; 
+  
+  misturador.update(Math.floor(delta / latencia_minima)* latencia_minima)
+    
+  renderer.render( cena, camara ) 
+
+  
+
+  delta = delta % latencia_minima
 }
 
-function playAnimacaoCadeira(){
-    misturadorOcupado = true
-    isPlayingChairAnim = true
-    let clipe = THREE.AnimationClip.findByName( gltf.animations, "dragChair1" ) 
-    acaoC1 = misturador.clipAction( clipe ) 
-    acaoC1.setLoop(THREE.LoopOnce)
-    acaoC1.clampWhenFinished = true
-    acaoC1.paused = false
-    clipe = THREE.AnimationClip.findByName( gltf.animations, "dragChair2" ) 
-    acaoC2 = misturador.clipAction( clipe ) 
-    acaoC2.setLoop(THREE.LoopOnce)
-    acaoC2.clampWhenFinished = true
-    acaoC2.paused = false
-    acaoC1.play()
-    acaoC2.play()
-}
-
-misturador.addEventListener('finished', ()=>{
-    if(isPlayingChairAnim){
-        acaoC1.paused = true
-        acaoC2.paused = true
-        acaoC1.timeScale = -(acaoC1.timeScale)
-        acaoC2.timeScale = -(acaoC2.timeScale)
-        misturadorOcupado = false
-        isPlayingChairAnim = false
-    }else{
-        acao.paused = true
-        acao.timeScale = -(acao.timeScale)
-        misturadorOcupado = false
-    }
-})
-
-/* camara.. */
-let camara = new THREE.PerspectiveCamera(70, 800 / 600, 0.01, 500);
-camara.position.set(-1,2,2)
-
-/* renderer... */
-let renderer = new THREE.WebGLRenderer({ canvas: canvas });
-renderer.shadowMap.enabled = true; // ativa as sombras
-renderer.setSize(800, 600);
-renderer.setClearColor(0xffefc4)
-
-new OrbitControls( camara, renderer.domElement ) // sem o THREE.
-
-let relogio = new THREE.Clock();
-function animar() {
-    requestAnimationFrame(animar)
-    renderer.render(cena, camara)
-    misturador.update( relogio.getDelta() )
-}
 animar()
 
-function luzes(cena) {
-    const luzAmbiente = new THREE.AmbientLight("lightgreen");
-    cena.add(luzAmbiente);
+let bulbLight, spotLight;
 
-    // point light 
-    const luzPonto = new THREE.PointLight("white");
-    luzPonto.position.set(-1, 3, 1);
-    luzPonto.intensity = 10;
-    cena.add(luzPonto);
+let carregador = new GLTFLoader() ;
+let modeloAtual; // Variável para armazenar o modelo atual
 
-    // directional light
-    const luz1 = new THREE.DirectionalLight("white");
-    luz1.position.set(2, 2, 1);
-    luz1.intensity = 5;
-    cena.add(luz1);
-    luz1.castShadow = true;
+function carregarModelo(caminhoModelo) {
+  // Remove o modelo atual da cena, se existir
+  if (modeloAtual) {
+    cena.remove(modeloAtual);
 
-    // directional light
-    const luz2 = new THREE.DirectionalLight("white");
-    luz2.position.set(-1, 2, -3);
-    luz2.intensity = 5;
-    cena.add(luz2);
-    luz2.castShadow = true;
+    misturador.stopAllAction();
+  }
 
-    // point light 
-    const luzPonto2 = new THREE.PointLight("white");
-    luzPonto2.position.set(-1, -3, 1);
-    luzPonto2.intensity = 10;
-    cena.add(luzPonto2);
-}
-luzes(cena)
+carregador.load( 
+  
+  caminhoModelo,
+  function ( gltf ) 
+  { 
+    modeloAtual = gltf.scene;
 
-function onWindowResize() {
-    camara.aspect = canvas.offsetWidth / canvas.offsetHeight;
-    camara.updateProjectionMatrix();
 
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
+        
+    cena.add(modeloAtual);
 
-    renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
-}
-window.addEventListener("resize", onWindowResize);
 
-let raycaster = new THREE.Raycaster()
-let rato = new THREE.Vector2()
-function renderRaycaster(evento) {
-    const canvasRect = canvas.getBoundingClientRect();
-    rato.x = ((evento.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
-    rato.y = -((evento.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
+    // Remover animações anteriores
+    misturador = new THREE.AnimationMixer(modeloAtual); 
 
-    if(!misturadorOcupado){
-        pegarPrimeiro();
-    }
-}
-canvas.addEventListener('click', renderRaycaster);
+    const lightBulb = modeloAtual.getObjectByName('S_LightBulb');
+    if (lightBulb) {
+        bulbLight = new THREE.PointLight('yellow', 0, 1); // Luz amarela, intensidade 10, alcance 10
+        bulbLight.position.set(0, 0.8, 0); // Altere a posição, se necessário
+        lightBulb.add(bulbLight);
 
-function pegarPrimeiro() {
-    raycaster.setFromCamera(rato, camara)
-    let intersetados = raycaster.intersectObjects(objetos)
-    if (intersetados.length > 0) {
-        let obj = intersetados[0].object
-        if(obj.name.includes('portaL')){
-            playAnimacao('openLeftDoor')
-        }
-        if(obj.name.includes('portaR')){
-            playAnimacao('openRightDoor')
-        }
-        if(obj.name.includes('gavetaR')){
-            playAnimacao('openRightDrawer')
-        }
-        if(obj.name.includes('gavetaL')){
-            playAnimacao('openLeftDrawer')
-        }
-        if(obj.name.includes('chair')){
-            playAnimacaoCadeira()
-        }
-    }
-} 
+       
 
-function setTableMaterial(num){
-    switch (num) {
-        case 1:
-            mesa.forEach(elem => {
-                if(elem.name.includes('porta')){
-                    if(elem.name.includes('_1')){
-                        elem.material = materialPorta1.clone()
-                    }else if(elem.name.includes('_2')){
-                        elem.material = materialPorta2.clone()
-                    }else{
-                        elem.material = material1.clone()
-                    }
-                }else{
-                    elem.material = material1.clone()
-                } 
-            });
-            break;
-        case 2:
-            mesa.forEach(elem => {
-                elem.material.color = material2.clone()
-            });
-            break;
-        case 3:
-            mesa.forEach(elem => {
-                elem.material.color = material3.clone()
-            });
-            break;
+       spotLight = new THREE.SpotLight('yellow', 0, 100, Math.PI / 6); // Cor branca, intensidade 5, alcance 20, ângulo de 30° (PI/6)
     
-        default:
-            break;
+    // Posicionando a luz no centro do objeto
+    spotLight.position.set(0, -0.6, 0); // Posição no centro local do lightBulb
+
+    // Direcionando a luz na direção do eixo Y positivo
+    spotLight.target.position.set(0, 10, 0); // Alvo em direção ao eixo Y positivo (ajuste conforme necessário)
+    
+    // Adicionando o alvo da luz como filho do lightBulb
+    lightBulb.add(spotLight.target);
+
+    // Adicionando a luz ao objeto lightBulb
+    lightBulb.add(spotLight);
+
+    
+
+    console.log('SpotLight adicionada ao objeto "S_LightBulb".');
+
+        
+    } else {
+        console.warn('Objeto "S_LightBulb" não encontrado no modelo.');
     }
+
+    // Configuração das animações do novo modelo
+    const animacoes = {
+      SupportJoint: THREE.AnimationClip.findByName(gltf.animations, 'Su'),
+      LongArm: THREE.AnimationClip.findByName(gltf.animations, 'L'),
+      ShortArm: THREE.AnimationClip.findByName(gltf.animations, 'Sh'),
+      ArmToAbajur: THREE.AnimationClip.findByName(gltf.animations, 'Ata'),
+      Abajur: THREE.AnimationClip.findByName(gltf.animations, 'A')
+    };
+
+    const acoes = {};
+    Object.keys(animacoes).forEach(nome => {
+      if (animacoes[nome]) {
+        acoes[nome] = misturador.clipAction(animacoes[nome]);
+      }
+    });
+
+    // Atualizar os botões para o novo modelo
+    document.getElementById('btn_playSupportJoint').onclick = () => acoes.SupportJoint?.reset().play();
+    document.getElementById('btn_playLongArm').onclick = () => acoes.LongArm?.reset().play();
+    document.getElementById('btn_playShortArm').onclick = () => acoes.ShortArm?.reset().play();
+    document.getElementById('btn_playArmToAbajur').onclick = () => acoes.ArmToAbajur?.reset().play();
+    document.getElementById('btn_playAbajur').onclick = () => acoes.Abajur?.reset().play();
+
+    // Pausar, parar e inverter animações para o novo modelo
+    document.getElementById('btn_pause').onclick = () => {
+      Object.values(acoes).forEach(acao => {
+        if (acao) acao.paused = !acao.paused;
+      });
+    };
+
+    document.getElementById('btn_stop').onclick = () => {
+      Object.values(acoes).forEach(acao => {
+        if (acao) acao.stop();
+      });
+    };
+
+    document.getElementById('btn_reverse').onclick = () => {
+      Object.values(acoes).forEach(acao => {
+        if (acao) acao.timeScale *= -1;
+      });
+    };
+
+    // Configuração do loop
+    document.getElementById('menu_loop').onchange = (event) => {
+      const valor = parseInt(event.target.value);
+      const loopModes = [THREE.LoopOnce, THREE.LoopRepeat, THREE.LoopPingPong];
+      const selectedLoopMode = loopModes[valor - 1];
+      Object.values(acoes).forEach(acao => {
+        if (acao) acao.setLoop(selectedLoopMode);
+      });
+    };
+
+    // Ativar sombras para o novo modelo
+    modeloAtual.traverse((element) => {
+      if (element.isMesh) {
+        element.castShadow = true;
+        element.receiveShadow = true;
+      }
+    });
+  
+ // Certifique-se de fechar adequadamente
+console.log('Modelo carregado:', caminhoModelo);
+
+}, undefined, function (error) {
+  console.error(error);
+});
+
 }
 
-document.getElementById('mat1').addEventListener('click', function () {
-    setTableMaterial(1)
-})
-document.getElementById('mat2').addEventListener('click', function () {
-    setTableMaterial(2)
-})
-document.getElementById('mat3').addEventListener('click', function () {
-    setTableMaterial(3)
-})
+document.getElementById('btn_changeModel').addEventListener('change', () => {
+  const valor = parseInt(event.target.value);
+  switch (valor) {
+    case 1:
+      carregarModelo('A.glb');
+      document.getElementById('corLuz').value = "#ffff00";
+      document.getElementById('intensidadeLuz').value = 0;
+      
+      break;
+    case 2:
+      
+      carregarModelo('Acastanho.glb');
+      document.getElementById('corLuz').value = "#ffff00";
+      document.getElementById('intensidadeLuz').value = 0;
+      break;
+    case 3:
+      carregarModelo('Adourado.glb');
+      document.getElementById('corLuz').value = "#ffff00";
+      document.getElementById('intensidadeLuz').value = 0;
+      
+      break;
+    default:
+      carregarModelo('A.glb');
+      document.getElementById('corLuz').value = "#ffff00";
+      document.getElementById('intensidadeLuz').value = 0;
+  }
+});
+
+
+
+
+carregarModelo('A.glb');
+
+
+// Atualizar a intensidade da luz
+document.getElementById('intensidadeLuz').addEventListener('input', (event) => {
+  const intensidade = event.target.value;
+  if (bulbLight) {
+    bulbLight.intensity = intensidade / 10; // Ajusta a intensidade da luz (ajustando o valor)
+  }
+  if (spotLight) {
+    spotLight.intensity = intensidade / 10; // Ajusta a intensidade da luz spot
+  }
+});
+
+// Atualizar a cor da luz
+document.getElementById('corLuz').addEventListener('input', (event) => {
+  const cor = event.target.value;
+  if (bulbLight) {
+    bulbLight.color.set(cor); // Atualiza a cor da luz de ponto
+  }
+  if (spotLight) {
+    spotLight.color.set(cor); // Atualiza a cor da luz spot
+  }
+});
+
+// Define o fundo da cena como branco
+cena.background = new THREE.Color('blue');
+
+// Adiciona uma luz ambiente para iluminar uniformemente
+const luzAmbiente = new THREE.AmbientLight('white', 0.1); // Intensidade de 0.5
+cena.add(luzAmbiente);
+
+
+
+// Ajusta a luz pontual
+ // Reduz a intensidade da luz pontual
+
+const luzPonto = new THREE.PointLight( "white" ) 
+luzPonto.position.set( 10, 10, 0) 
+luzPonto.intensity= 1
+luzPonto.castShadow = true
+
+luzPonto.shadow.mapSize.width = 2048;
+luzPonto.shadow.mapSize.height = 2048;
+
+luzPonto.shadow.camera.near = 0.5;
+luzPonto.shadow.camera.far = 500;
+
+
+cena.add( luzPonto ) 
+
+
+const luzDirecional = new THREE.DirectionalLight( "white" );
+luzDirecional.position.set( 3, 2, 0 ); //aponta na direção de (0, 0, 0)
+luzDirecional.intensity= 1
+cena.add( luzDirecional );
+
+
+
+//Function to change texture
+
+
+
+
+console.log(cena);
+
+
+
+
+
+
