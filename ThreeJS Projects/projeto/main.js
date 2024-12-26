@@ -62,10 +62,6 @@ let latencia_minima = 1 / 60; // tempo mínimo entre cada atualização
 
 let misturador = new THREE.AnimationMixer(cena)
 
-
-
-
-
 function animar() 
 { 
   requestAnimationFrame( animar ) 
